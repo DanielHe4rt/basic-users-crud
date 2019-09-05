@@ -2,106 +2,60 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Auth\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
-use App\Models\User;
+
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
-use App\Models\UserValidation;
+use App\Validators\Auth\UserValidation;
 
 
-class UserController extends Controller {
+class UserController extends Controller
+{
 
     private $model;
 
-    public function __construct(User $user) {
+
+    public $limit = 15;
+
+    public function __construct(User $user)
+    {
         $this->model = $user;
     }
 
-    public function getUsers() {
-
-        try {
-            $users = $this->model->all();
-            if (count($users) > 0){
-                return response()->json($users, Response::HTTP_OK);
-            } else {
-                return response()->json([], Response::HTTP_OK);
-            }
-        } catch (QueryException $exception){
-            return response()->json(['error' => 'Deu merda no servidor'], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-
+    public function getUsers()
+    {
+        return response()->json($this->model->paginate($this->limit), Response::HTTP_OK);
     }
 
-    public function getUser(int $id) {
-        try {
-            $user = $this->model->find($id);
-            if (count($user) > 0){
-                return response()->json($user, Response::HTTP_OK);
-            } else {
-                return response()->json([], Response::HTTP_OK);
-            }
-        } catch (QueryException $exception){
-            return response()->json(['error' => 'Deu merda no servidor'], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-
+    public function getUser(int $id)
+    {
+        return response()->json($this->model->findOrFail($id));
     }
 
-    public function addUser(Request $request) {
-
-        $validator = Validator::make(
-            $request->all(),
-            UserValidation::VALIDATION_RULES
-        );
-
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), Response::HTTP_BAD_REQUEST);
-        } else {
-            try {
-                $hashed = hash("md5", $request->pass_hash);
-                $request->merge(['pass_hash' => $hashed]);
-                $user = $this->model->create($request->all());
-                return response()->json($user, Response::HTTP_CREATED);
-            } catch (QueryException $exception){
-                return response()->json(['error' => 'Deu merda no servidor'], Response::HTTP_INTERNAL_SERVER_ERROR);
-            }
-        }
-
-
-
+    public function addUser(Request $request)
+    {
+        $this->validate($request, UserValidation::VALIDATION_RULES);
+        $hashed = Hash::make($request->input('password'));
+        $request->merge(['password' => $hashed]);
+        $user = $this->model->create($request->all());
+        return response()->json($user, Response::HTTP_CREATED);
     }
 
-    public function deleteUser(int $id) {
-
-        try {
-            $user = $this->model->find($id)
-                ->delete();
-            return response()->json([null], Response::HTTP_OK);
-        } catch (QueryException $exception){
-            return response()->json(['error' => 'Deu merda no servidor'], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-
+    public function deleteUser(int $id)
+    {
+        $this->model->findOrFail($id)->delete();
+        return response()->json([]);
     }
 
     public function updateUser(int $id, Request $request)
     {
-        $validator = Validator::make(
-            $request->all(),
-            UserValidation::VALIDATION_RULES
-        );
+        // Pense numa melhor forma de fazer seu validador de update, pois nem sempre o usuário irá mandar todas as informações.
+        $this->validate($request,UserValidation::VALIDATION_RULES);
 
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), Response::HTTP_BAD_REQUEST);
-        } else {
-            try {
-                $hashed = hash("md5", $request->pass_hash);
-                $request->merge(['pass_hash' => $hashed]);
-                $user = $this->model->find($id)
-                    ->update($request->all());
-                return response()->json($user, Response::HTTP_OK);
-            } catch (QueryException $exception) {
-                return response()->json(['error' => 'Deu merda no servidor'], Response::HTTP_INTERNAL_SERVER_ERROR);
-            }
-        }
+        // Siga o modelo do addUser pra completar essa parte.
+
     }
 }
